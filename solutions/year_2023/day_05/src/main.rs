@@ -9,11 +9,44 @@ use rayon::prelude::*;
 use indicatif::ProgressBar;
 
 const PATH: &str = "input.txt";
+const TEST_INPUT: &str = "seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4";
 
 struct Range {
-    destination: u64,
-    source: u64,
-    length: u64,
+    source: i64,
+    delta: i64,
+    length: i64,
 }
 
 struct Map {
@@ -21,13 +54,13 @@ struct Map {
 }
 
 struct Almanac {
-    seeds: Vec<u64>,
+    seeds: Vec<i64>,
     maps: Vec<Map>,
 }
 
 impl Almanac {
     fn new(input: &str) -> Self {
-        let mut seeds: Vec<u64> = Vec::new();
+        let mut seeds: Vec<i64> = Vec::new();
         let mut maps: Vec<Map> = Vec::new();
         let mut seen_first_colon = false;
         let mut lines = input.lines();
@@ -39,7 +72,7 @@ impl Almanac {
                             .split_once(": ")
                             .unwrap().1
                             .split_ascii_whitespace()
-                            .filter_map(|s| s.parse::<u64>().ok())
+                            .filter_map(|s| s.parse::<i64>().ok())
                             .collect::<Vec<_>>();
                     seen_first_colon = true;
                 } else {
@@ -51,14 +84,14 @@ impl Almanac {
         Self { seeds, maps }
     }
 
-    fn traverse_seed(&self, seed: u64) -> u64 {
+    fn traverse_seed(&self, seed: i64) -> i64 {
         let mut value = seed;
         
         for map in &self.maps {
             for range in &map.ranges {
                 let in_range = value >= range.source && value <= range.source + range.length;
                 if in_range {
-                    value = value + range.destination - range.source;
+                    value += range.delta;
                     break;
                 }
             }
@@ -67,7 +100,7 @@ impl Almanac {
         value
     }
 
-    fn traverse(&self) -> u64 {
+    fn traverse(&self) -> i64 {
         self.seeds
             .iter()
             .map(|seed| self.traverse_seed(*seed))
@@ -75,7 +108,7 @@ impl Almanac {
             .expect("Should have a result value")
     }
 
-    fn traverse_range(&self) -> u64 {
+    fn traverse_range(&self) -> i64 {
         let total_iterations: usize = self.seeds.chunks(2).map(|chunk| chunk[1] as usize).sum();
         let progress = ProgressBar::new(total_iterations as u64);
 
@@ -115,15 +148,15 @@ fn process_map_lines(lines: &mut dyn Iterator<Item = &str>, maps: &mut Vec<Map>)
 
         let mut values = next_line
             .split_ascii_whitespace()
-            .filter_map(|s| s.parse::<u64>().ok());
+            .filter_map(|s| s.parse::<i64>().ok());
 
         if let (Some(destination), Some(source), Some(length)) = 
             (values.next(), values.next(), values.next())
         {
             ranges.push( Range {
-                destination,
                 source,
                 length,
+                delta: destination - source,
             });
         }
     }
@@ -131,12 +164,12 @@ fn process_map_lines(lines: &mut dyn Iterator<Item = &str>, maps: &mut Vec<Map>)
     maps.push(Map { ranges } );
 }
 
-fn part_1(input: &str) -> u64 {
+fn part_1(input: &str) -> i64 {
     let almanac = Almanac::new(&input);
     almanac.traverse()
 }
 
-fn part_2(input: &str) -> u64 {
+fn part_2(input: &str) -> i64 {
     let almanac = Almanac::new(&input);
     almanac.traverse_range()
 }
