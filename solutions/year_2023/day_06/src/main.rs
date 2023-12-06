@@ -124,12 +124,7 @@ fn part_2_binary_search(input: &str) -> usize {
 }
 
 fn part_2_quadratic(input: &str) -> f64 {
-    // "Time:      7  15   30
-    // Distance:  9  40  200";
-
     let race = parse_part_2(input);
-    let race = Race { time: 7, distance: 9 };
-    let race = Race { time: 30, distance: 200 };
 
     // -step ^ 2 + time * step - race.distance > 0
     let a = -1.;
