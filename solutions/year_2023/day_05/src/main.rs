@@ -6,10 +6,11 @@ extern crate test;
 use utilities::read_input;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::*;
-use indicatif::ProgressBar;
+// use indicatif::ProgressBar;
 
 const PATH: &str = "input.txt";
-const TEST_INPUT: &str = "seeds: 79 14 55 13
+const TEST_INPUT: &str =
+"seeds: 79 14 55 13
 
 seed-to-soil map:
 50 98 2
@@ -84,6 +85,14 @@ impl Almanac {
         Self { seeds, maps }
     }
 
+    fn traverse(&self) -> i64 {
+        self.seeds
+            .iter()
+            .map(|seed| self.traverse_seed(*seed))
+            .min()
+            .expect("Should have a result value")
+    }
+
     fn traverse_seed(&self, seed: i64) -> i64 {
         let mut value = seed;
         
@@ -100,17 +109,9 @@ impl Almanac {
         value
     }
 
-    fn traverse(&self) -> i64 {
-        self.seeds
-            .iter()
-            .map(|seed| self.traverse_seed(*seed))
-            .min()
-            .expect("Should have a result value")
-    }
-
     fn traverse_range(&self) -> i64 {
-        let total_iterations: usize = self.seeds.chunks(2).map(|chunk| chunk[1] as usize).sum();
-        let progress = ProgressBar::new(total_iterations as u64);
+        // let total_iterations: usize = self.seeds.chunks(2).map(|chunk| chunk[1] as usize).sum();
+        // let progress = ProgressBar::new(total_iterations as u64);
 
         let result = self
             .seeds
@@ -120,13 +121,13 @@ impl Almanac {
                 chunk[0]..(chunk[0] + chunk[1])
             })
             .map(|seed| {
-                progress.inc(1);
+                // progress.inc(1);
                 self.traverse_seed(seed)
             })
             .min()
             .expect("Should have a minumum result value");
 
-        progress.finish();
+        // progress.finish();
         result
     }
 }
@@ -134,7 +135,7 @@ impl Almanac {
 fn main() {
     let input = read_input(PATH);
     // let input = TEST_INPUT;
-    // println!("Part 1 answer: {:?}", part_1(&input));
+    println!("Part 1 answer: {:?}", part_1(&input));
     println!("Part 2 answer: {:?}", part_2(&input));
 }
 
