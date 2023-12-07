@@ -63,7 +63,7 @@ fn parse(input: &str, replace_joker: bool) -> Vec<Hand> {
         .lines()
         .filter_map(|line| {
             let mut parts = line.split_whitespace();
-            let original = parts.next()?.to_string();
+            let original = parts.next()?;
             let cards = original
                 .chars()
                 .map(|c| match c {
@@ -168,8 +168,9 @@ fn calculate_score(enumerated_hands: &Vec<(HandType, &mut Hand)>) -> usize {
     enumerated_hands
         .iter()
         .enumerate()
-        .map(|(i, &(_, ref hand))| (i + 1) * hand.bid as usize)
-        .sum::<usize>()
+        .fold(0, |acc, (i, &(_, ref hand))| {
+            acc + (i + 1) * hand.bid as usize
+        })
 }
 
 fn solve(input: &str, replace_joker: bool) -> usize {
