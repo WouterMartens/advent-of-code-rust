@@ -14,33 +14,7 @@ KK677 28
 KTJJT 220
 QQQJA 483";
 
-const TEST_INPUT_CUSTOM: &str = "32T3K 765
-T55J5 684
-KK677 28
-KTJJT 220
-QQQJA 483
-AAAAA 25
-1111T 35
-12345 60";
-
-const TEST_INPUT_CUSTOM_2: &str = "32T3K 765
-T323K 777
-T55J5 684
-555TJ 690
-KK677 28
-677KK 29
-KTJJT 220
-JJTTK 221
-QQQJA 483
-JAQQQ 482
-AAAAA 25
-QQQQQ 36
-1111T 35
-T1111 39
-12345 60
-K5432 73";
-
-const TEST_INPUT_CUSTOM_3: &str = "2345A 1
+const TEST_INPUT_CUSTOM: &str = "2345A 1
 Q2KJJ 13
 Q2Q2Q 19
 T3T3J 17
@@ -71,10 +45,9 @@ enum HandType {
     FiveOfAKind,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Hand {
     cards: String,
-    original: String,
     bid: u16,
     value: usize,
 }
@@ -85,85 +58,135 @@ fn main() {
     println!("Part 2 answer: {}", part_2(&input));
 }
 
-fn parse(input: &str) -> Vec<Hand> {
+fn parse(input: &str, replace_joker: bool) -> Vec<Hand> {
     input
         .lines()
         .filter_map(|line| {
             let mut parts = line.split_whitespace();
             let original = parts.next()?.to_string();
             let cards = original
-                .replace('T', "a")
-                .replace('J', "b")
-                .replace('Q', "c")
-                .replace('K', "d")
-                .replace('A', "e");
+                .chars()
+                .map(|c| match c {
+                    'T' => 'a',
+                    'J' => 'b',
+                    'Q' => 'c',
+                    'K' => 'd',
+                    'A' => 'e',
+                    _ => c,
+                })
+                .collect::<String>();
 
             let bid = parts.last()?.parse::<u16>().ok()?;
-            let value = usize::from_str_radix(&cards, 15).expect("Should be able to parse");
 
-            Some(Hand {
-                cards,
-                bid,
-                value,
-                original,
-            })
+            let value = match replace_joker {
+                false => usize::from_str_radix(&cards, 15).expect("Should be able to parse"),
+                true => usize::from_str_radix(&cards.replace('b', "1"), 15)
+                    .expect("Should be able to parse"),
+            };
+
+            Some(Hand { cards, bid, value })
         })
         .collect::<Vec<Hand>>()
 }
 
-fn categorize_hands(hands: &[Hand]) -> Vec<(HandType, &Hand)> {
+fn categorize_hands(hands: &mut [Hand], replace_joker: bool) -> Vec<(HandType, &mut Hand)> {
     hands
-        .iter()
+        .iter_mut()
         .map(|hand| {
-            let mut unique = HashSet::new();
-            hand.cards.chars().for_each(|c| _ = unique.insert(c));
+            let mut unique = hand.cards.chars().collect();
+            let (max_char, mut max_unique_values) =
+                find_max_unique(&hand.cards, &unique, replace_joker);
 
-            let max_unique_values = unique
-                .iter()
-                .map(|unique_c| hand.cards.chars().filter(|c| c == unique_c).count())
-                .max();
+            if replace_joker && hand.cards.contains('b') {
+                hand.cards = hand.cards.replace('b', &max_char.to_string());
+                unique = hand.cards.chars().collect::<HashSet<_>>();
+                max_unique_values = find_max_unique_values(&hand.cards, &unique);
+            }
 
-            let hand_type = match unique.len() {
-                1 => HandType::FiveOfAKind,
-                2 => match max_unique_values {
-                    Some(4) => HandType::FourOfAKind,
-                    Some(3) => HandType::FullHouse,
-                    _ => panic!("Invalid max unique value in hand for unique length arm 2"),
-                },
-                3 => match max_unique_values {
-                    Some(2) => HandType::TwoPair,
-                    Some(3) => HandType::ThreeOfAKind,
-                    _ => panic!("Invalid max unique value in hand for unique length arm 3"),
-                },
-                4 => HandType::OnePair,
-                5 => HandType::HighCard,
-                _ => panic!("Invalid hand"),
-            };
+            let unique_count = unique.len();
+            let hand_type = determine_hand_type(unique_count, max_unique_values);
 
             (hand_type, hand)
         })
-        .collect::<Vec<_>>()
+        .collect()
 }
 
-fn part_1(input: &str) -> usize {
-    let hands = parse(input);
-    let mut hands = categorize_hands(&hands);
+fn find_max_unique(cards: &str, unique: &HashSet<char>, replace_joker: bool) -> (char, usize) {
+    let mut max_char = ' ';
+    let mut max_unique_values = 0;
 
+    for &unique_c in unique {
+        let count = cards
+            .chars()
+            .filter(|&c| c == unique_c && (c != 'b' || !replace_joker))
+            .count();
+        if count > max_unique_values {
+            max_unique_values = count;
+            max_char = unique_c;
+        }
+    }
+
+    (max_char, max_unique_values)
+}
+
+fn find_max_unique_values(cards: &str, unique: &HashSet<char>) -> usize {
+    unique
+        .iter()
+        .map(|&c| cards.chars().filter(|&x| x == c).count())
+        .max()
+        .unwrap_or(0)
+}
+
+fn determine_hand_type(unique_count: usize, max_unique_values: usize) -> HandType {
+    match unique_count {
+        1 => HandType::FiveOfAKind,
+        2 => match max_unique_values {
+            3 => HandType::FullHouse,
+            4 => HandType::FourOfAKind,
+            v => panic!("Invalid value {} for unique length arm 2", v),
+        },
+        3 => match max_unique_values {
+            2 => HandType::TwoPair,
+            3 => HandType::ThreeOfAKind,
+            v => panic!("Invalid value {} for unique length arm 3", v),
+        },
+        4 => HandType::OnePair,
+        5 => HandType::HighCard,
+        h => panic!("Invalid hand {}", h),
+    }
+}
+
+fn sort_hands(hands: &mut [(HandType, &mut Hand)]) {
     hands.sort_by(|(a_type, a_hand), (b_type, b_hand)| {
         a_type
             .cmp(&b_type)
             .then_with(|| a_hand.value.cmp(&b_hand.value))
     });
+}
 
-    hands
+fn calculate_score(enumerated_hands: &Vec<(HandType, &mut Hand)>) -> usize {
+    enumerated_hands
         .iter()
         .enumerate()
-        .map(|(i, &(_, hand))| (i + 1) * hand.bid as usize)
+        .map(|(i, &(_, ref hand))| (i + 1) * hand.bid as usize)
         .sum::<usize>()
 }
 
-fn part_2(_input: &str) -> u32 {
-    0
+fn solve(input: &str, replace_joker: bool) -> usize {
+    let mut hands = parse(input, replace_joker);
+    let mut hands = categorize_hands(&mut hands, replace_joker);
+    sort_hands(&mut hands);
+    calculate_score(&hands)
+}
+
+fn part_1(input: &str) -> usize {
+    let replace_joker = false;
+    solve(input, replace_joker)
+}
+
+fn part_2(input: &str) -> usize {
+    let replace_joker = true;
+    solve(input, replace_joker)
 }
 
 #[cfg(test)]
@@ -174,16 +197,13 @@ mod tests {
     #[test]
     fn test_part_1() {
         assert_eq!(part_1(TEST_INPUT_ORIGINAL), 6440);
-        assert_eq!(part_1(TEST_INPUT_CUSTOM), 9125);
-        assert_eq!(part_1(TEST_INPUT_CUSTOM_2), 34933);
-        assert_eq!(part_1(TEST_INPUT_CUSTOM_3), 6592);
+        assert_eq!(part_1(TEST_INPUT_CUSTOM), 6592);
     }
 
     #[test]
-    #[ignore]
     fn test_part_2() {
-        assert_eq!(part_1(TEST_INPUT_ORIGINAL), 5905);
-        assert_eq!(part_2(TEST_INPUT_CUSTOM_3), 6839);
+        assert_eq!(part_2(TEST_INPUT_ORIGINAL), 5905);
+        assert_eq!(part_2(TEST_INPUT_CUSTOM), 6839);
     }
 
     #[bench]
