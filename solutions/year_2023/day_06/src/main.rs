@@ -3,11 +3,10 @@
 
 extern crate test;
 
-use utilities::read_input;
+use utilities::{isqrt, read_input};
 
 const PATH: &str = "input.txt";
-const TEST_INPUT: &str =
-"Time:      7  15   30
+const TEST_INPUT: &str = "Time:      7  15   30
 Distance:  9  40  200";
 
 struct Race {
@@ -31,10 +30,7 @@ fn parse_part_1(input: &str) -> Vec<Vec<u32>> {
             let parts: Vec<_> = line.split_whitespace().collect::<Vec<_>>();
             parts[1..]
                 .iter()
-                .filter_map(|val| val
-                    .trim()
-                    .parse::<u32>()
-                    .ok())
+                .filter_map(|val| val.trim().parse::<u32>().ok())
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>()
@@ -43,13 +39,13 @@ fn parse_part_1(input: &str) -> Vec<Vec<u32>> {
 fn parse_part_2(input: &str) -> Race {
     let data = parse_part_1(input)
         .iter()
-        .map(|line| line
-            .iter()
-            .map(|kernel| kernel.to_string())
-            .collect::<String>()
-            .parse::<usize>()
-            .expect("Should be a valid number")
-        )
+        .map(|line| {
+            line.iter()
+                .map(|kernel| kernel.to_string())
+                .collect::<String>()
+                .parse::<usize>()
+                .expect("Should be a valid number")
+        })
         .collect::<Vec<_>>();
 
     Race {
@@ -61,15 +57,16 @@ fn parse_part_2(input: &str) -> Race {
 fn part_1(input: &str) -> usize {
     let data = parse_part_1(input);
 
-    (0..data[0].len()).map(|race| {
-        let time = data[0][race];
-        let distance = data[1][race];
+    (0..data[0].len())
+        .map(|race| {
+            let time = data[0][race];
+            let distance = data[1][race];
 
-        (1..=time).filter(|&step| {
-            (time - step) * step > distance
+            (1..=time)
+                .filter(|&step| (time - step) * step > distance)
+                .count()
         })
-        .count()
-    }).product()
+        .product()
 }
 
 fn part_2_naive(input: &str) -> usize {
@@ -78,10 +75,11 @@ fn part_2_naive(input: &str) -> usize {
 
     let steps = race.time / 2 - time_is_even;
 
-    (1..=steps).filter(|&step|
-        (race.time - step) * step > race.distance
-    )
-    .count() * 2 + time_is_even 
+    (1..=steps)
+        .filter(|&step| (race.time - step) * step > race.distance)
+        .count()
+        * 2
+        + time_is_even
 }
 
 fn part_2_sequential(input: &str) -> usize {
@@ -123,29 +121,22 @@ fn part_2_binary_search(input: &str) -> usize {
     (race_time - right) * 2 + time_is_even
 }
 
-fn part_2_quadratic(input: &str) -> f64 {
+fn part_2_quadratic(input: &str) -> isize {
     let race = parse_part_2(input);
 
     // -step ^ 2 + time * step - race.distance > 0
-    let a = -1.;
-    let b = race.time as f64;
-    let c = -1. * (race.distance as f64);
+    let a = -1 as isize;
+    let b = race.time as isize;
+    let c = -1 * race.distance as isize;
 
-    let discriminant = b * b - 4. * a * c;
-    let denominator = 2. * a;
-    let mut first = ((-b + discriminant.sqrt()) / denominator).ceil();
-    let mut second = ((-b - discriminant.sqrt()) / denominator).floor();
-    
-    if (first * (b - first)) == race.distance as f64 {
-        dbg!(first, first * (b - first), race.distance);
-        first += 1.;
-    }
-    if (second * (b - second)) == race.distance as f64 {
-        dbg!(second, second * (b - second), race.distance);
-        second -= 1.;
-    }
+    let discriminant = b * b - 4 * a * c;
+    let root = isqrt(discriminant);
+    let denominator = 2 * a;
 
-    second - first + 1.
+    let first = (-b + root) / denominator;
+    let second = (-b - root) / denominator;
+
+    second - first
 }
 
 #[cfg(test)]
@@ -154,7 +145,6 @@ mod tests {
     use test::Bencher;
 
     #[test]
-    #[ignore]
     fn test_part_1() {
         assert_eq!(part_1(TEST_INPUT), 288);
     }
@@ -164,7 +154,7 @@ mod tests {
         assert_eq!(part_2_naive(TEST_INPUT), 71503);
         assert_eq!(part_2_sequential(TEST_INPUT), 71503);
         assert_eq!(part_2_binary_search(TEST_INPUT), 71503);
-        assert_eq!(part_2_quadratic(TEST_INPUT), 71503.);
+        assert_eq!(part_2_quadratic(TEST_INPUT), 71503);
     }
 
     #[bench]
@@ -179,23 +169,21 @@ mod tests {
         b.iter(|| part_2_naive(&input));
     }
 
-    
     #[bench]
     fn bench_part_2_sequential(b: &mut Bencher) {
         let input = read_input(PATH);
         b.iter(|| part_2_sequential(&input));
     }
-        
+
     #[bench]
     fn bench_part_2_binary_search(b: &mut Bencher) {
         let input = read_input(PATH);
         b.iter(|| part_2_binary_search(&input));
     }
-    
+
     #[bench]
     fn bench_part_2_quadratic(b: &mut Bencher) {
         let input = read_input(PATH);
         b.iter(|| part_2_quadratic(&input));
     }
-
 }
